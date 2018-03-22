@@ -2,31 +2,6 @@ import curses
 import random
 import time
 import datetime
-# app = {
-#     'menu': {
-#         'option_index': 0,
-#     },
-#     'difficult_level_chooser': {
-#         'option_index': 0,
-#     },
-#     'game': {
-#         'czas': None,
-#         'labirynt': None,
-#         'player': {
-#             'x': 0,
-#             'y': 0
-#          },
-#         'key': None,
-#         'przeciwnicy': None
-#     },
-#     'menu2': {
-#         'option_index': 0,
-#     },
-#     'is_active': True,
-#     'current_window': 'menu',
-#     'key_pressed': None,
-#     'screen': None
-# }
 
 WALL = 1
 PATH = 0
