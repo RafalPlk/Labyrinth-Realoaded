@@ -46,7 +46,6 @@ LOGO = """
    \_| \_\___|_|\___/ \__,_|\__,_|\___|\__,_|"""
 
 
-
 N, S, E, W = 1, 2, 3, 4
 
 dx = {E: 1, W: -1, N: 0, S: 0}
@@ -58,51 +57,32 @@ directions = [N, S, E, W]
 WIDTH = 50
 HEIGHT = 25
 
+NEIGHBORS = { 
+    N: [(0, 1), (0, -1), (-1, 0)],
+    S: [(0, 1), (0, -1), (1, 0)],
+    E: [(0, 1), (-1, 0), (1, 0)],
+    W: [(0, -1), (-1, 0), (1, 0)],
+}
+
+def isNeighborsAreEmpty(matrix, direction, x_position, y_position):
+    return any([not bool(matrix[y_position+dy][x_position+dx]) for dy, dx in NEIGHBORS[direction]])
+
+
 def backtracking_labirynth_generator(
-        labirynth_matrix,
+        matrix,
         position_y=1,
         position_x=1):
-    # przetasowanie listy
     random.shuffle(directions)
 
     for direction in directions:
-        # obliczamy nowe punkty na podstawie starych
         new_x, new_y = position_x + dx[direction], position_y + dy[direction]
 
-        if 0 < new_x < WIDTH - 1 and 0 < new_y < HEIGHT - 1 and labirynth_matrix[new_y][new_x]:
-
-            # skrót
-            matrix = labirynth_matrix
-
-            # sprawdzamy czy jeśli podążamy na północ to po prawe, lewej i
-            # wyżej komórka nie jest zajęta
-            if direction == N and (
-                    not matrix[new_y][new_x + 1] or not matrix[new_y][new_x - 1] or not matrix[new_y - 1][new_x]):
+        if 0 < new_x < WIDTH - 1 and 0 < new_y < HEIGHT - 1 and matrix[new_y][new_x]:
+            if isNeighborsAreEmpty(matrix, direction, new_x, new_y):
                 continue
 
-            # sprawdzamy czy jeśli podążamy na południe to po prawej, lewej i
-            # poniżej komórka nie jest zajęta
-            if direction == S and (
-                    not matrix[new_y][new_x + 1] or not matrix[new_y][new_x - 1] or not matrix[new_y + 1][new_x]):
-                continue
-
-            # sprawdzamy czy jeśli podążamy na wschód to po wyżej, po niżej i
-            # po prawej komórka nie jest zajęta
-            if direction == E and (
-                    not matrix[new_y][new_x + 1] or not matrix[new_y - 1][new_x] or not matrix[new_y + 1][new_x]):
-                continue
-
-            # sprawdzamy czy jeśli podążamy na zachód to po wyżej, po niżej i
-            # po lewej komórka nie jest zajęta
-            if direction == W and (
-                    not matrix[new_y][new_x - 1] or not matrix[new_y - 1][new_x] or not matrix[new_y + 1][new_x]):
-                continue
-
-            # wypełnianie ścieżki
-            labirynth_matrix[new_y][new_x] = 0
-
-            # rekurencyjnie wywołujemy jeszcze raz obecną funkcje
-            backtracking_labirynth_generator(labirynth_matrix, new_y, new_x)
+            matrix[new_y][new_x] = 0
+            backtracking_labirynth_generator(matrix, new_y, new_x)
 
 
 # backtracking algorithm
