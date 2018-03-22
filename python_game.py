@@ -1,5 +1,7 @@
 import curses
 import random
+import time
+import datetime
 # app = {
 #     'menu': {
 #         'option_index': 0,
@@ -64,77 +66,69 @@ NEIGHBORS = {
     W: [(0, -1), (-1, 0), (1, 0)],
 }
 
-def isNeighborsAreEmpty(matrix, direction, x_position, y_position):
-    return any([not bool(matrix[y_position+dy][x_position+dx]) for dy, dx in NEIGHBORS[direction]])
+
+def isNeighborsCellAreEmpty(matrix, direction, y, x):
+    return any([not matrix[y + dy][x + dx] for dy, dx in NEIGHBORS[direction]])
 
 
-def backtracking_labirynth_generator(
-        matrix,
-        position_y=1,
-        position_x=1):
+def fillMaze(matrix, y, x):
     random.shuffle(directions)
 
     for direction in directions:
-        new_x, new_y = position_x + dx[direction], position_y + dy[direction]
+        matrix[y][x] = 0
 
-        if 0 < new_x < WIDTH - 1 and 0 < new_y < HEIGHT - 1 and matrix[new_y][new_x]:
-            if isNeighborsAreEmpty(matrix, direction, new_x, new_y):
+        new_y = y + dy[direction]
+        new_x = x + dx[direction]
+
+        if 0 < new_x < WIDTH - 1 and 0 < new_y < HEIGHT - 1:
+            if isNeighborsCellAreEmpty(matrix, direction, new_y, new_x,):
                 continue
-
-            matrix[new_y][new_x] = 0
-            backtracking_labirynth_generator(matrix, new_y, new_x)
+            
+            fillMaze(matrix, new_y, new_x)
 
 
 # backtracking algorithm
 def makeMaze(matrix):
-    backtracking_labirynth_generator(matrix)
+    fillMaze(matrix, len(matrix) - 1, len(matrix[0]) - 2)
     return matrix
 
 
 def makeMatrix(height, width, fillValue=1):
     return [[fillValue for y in range(height)] for x in range(width)]
 
-
-class MenuWindow():  
-    OPTION_LIST = ['Start', 'Quit']
-
-    def __init__(self, appConfig):
-        self.appConfig = appConfig
-        self.option_index = 0
-
-    def keyboard_handle(self, keypressed):
-        if keypressed == curses.KEY_DOWN:
-            self.option_index = (self.option_index + 1 + 2) % 2
-        elif keypressed == curses.KEY_UP:
-            self.option_index = (self.option_index - 1 + 2) % 2
-        # You may need to check for newline (aka \n, ^J, ASCII 10) or carriage return (\r, ^M, ASCII 13).
-        elif keypressed == curses.KEY_ENTER or keypressed == 10 or keypressed == 13:
-            self.appConfig['currentView'] = MenuWindow.OPTION_LIST[self.option_index]
-
-    def update_view(self, screen):
-        screen.addstr(0, 0, LOGO)
-
-        for index, option in enumerate(MenuWindow.OPTION_LIST):
-            screen.addstr(20 + 2 * index, 20, option, curses.color_pair(self.option_index == index))
-
-
-class Player:
-    def __init__(self):
-        self.x, self.y = (1, 1)
-        self.last_Position = [self.x, self.y]
-
-    def setPosition(x_position, y_position):
-        self.x = x_position
-        self.y = y_position
+class Key:
+    def __init__(self, xPosition, yPosition):
+        self.x = xPosition
+        self.y = yPosition
+        self.visible = True
 
     def getPosition(self):
         return self.x, self.y
 
-    def lookoutisWall(self):
-        self.x, self.y = self.last_Position
+    def hide(self):
+        self.visible = False
+
+    def show(self):
+        self.visible = True
+
+    def draw(self, screen):
+        screen.addstr(self.y, self.x, " k"[self.visible])
+
+
+class Player:
+    def __init__(self, xPosition, yPosition):
+        self.x = xPosition
+        self.y = yPosition
+        self.lastPosition = [self.x, self.y]
+
+    def getPosition(self):
+        return self.x, self.y
+
+    def restorePosition(self):
+        self.x, self.y = self.lastPosition
 
     def changePostionBy(self, x=0, y=0):
-        self.last_Position = [self.x, self.y]
+        self.lastPosition = [self.x, self.y]
         self.x += x 
         self.y += y
 
@@ -145,23 +139,93 @@ class Player:
 class Maze:
     def __init__(self):
         self.maze = makeMaze(makeMatrix(50, 25))
+        self.height = len(self.maze)
+        self.width = len(self.maze[0])
 
     def isWall(self, xPosition, yPosition):
         return self.maze[yPosition][xPosition] == WALL
 
+    def openPassage(self):
+        self.maze[self.height - 1][self.width - 2] = PATH
+
+    def closePassage(self):
+        self.maze[self.height - 1][self.width - 2] = WALL
+
+    def getPassagePostion(self):
+            return self.height - 1, self.width - 2
+
+    def getRandomPosition(self):
+        avaiblePositions = [(x, y) for y, row in enumerate(self.maze) for x, element in enumerate(row) if not self.maze[y][x]]
+        return random.choice(avaiblePositions)
+
+    def draw(self, screen, fogOfWarPosition):
+        x, y = fogOfWarPosition
+        
+        for j in range(HEIGHT):
+            screen.addstr(j, 0, " █"[self.maze[j][0]]) 
+            screen.addstr(j, WIDTH-1, " █"[self.maze[j][WIDTH-1]]) 
+   
+        for i in range(WIDTH):
+            screen.addstr(0, i, " █"[self.maze[0][i]]) 
+            screen.addstr(HEIGHT-1, i, " █"[self.maze[HEIGHT-1][i]]) 
+
+        for j in range(y-4, y+5): 
+            for i in range(x-8, x+9):
+                if 0 < j < self.height and 0 < i < self.width:
+                    screen.addstr(j, i, " █"[self.maze[j][i]]) 
+
+
+class Timer():
+    def __init__(self, timer):
+        self.timer = timer
+        self.last_time = datetime.datetime.now()
+        
     def draw(self, screen):
-        for y, row in enumerate(self.maze): 
-            for x, element in enumerate(row):
-                screen.addstr(y, x, " █"[self.maze[y][x]]) 
+        mins, secs = divmod(self.timer, 60)
+        timeformat = 'Pozostały czas: {:02d}:{:02d}'.format(mins, secs)
+        screen.addstr(0, 51, timeformat)
+
+        if (datetime.datetime.now() - self.last_time).total_seconds() > 1:
+            self.last_time = datetime.datetime.now()
+            self.timer -= 1
+
+    def isTimeout(self):
+        return not self.timer
+        
+
+class MenuWindow():  
+    OPTION_LIST = ['Start', 'Quit']
+
+    def __init__(self, appConfig):
+        self.appConfig = appConfig
+        self.option_index = 0
+
+    def keyboardHandle(self, keypressed):
+        if keypressed == curses.KEY_DOWN:
+            self.option_index = (self.option_index + 1 + 2) % 2
+        elif keypressed == curses.KEY_UP:
+            self.option_index = (self.option_index - 1 + 2) % 2
+        elif keypressed == curses.KEY_ENTER or keypressed == 10 or keypressed == 13:
+            self.appConfig['currentView'] = MenuWindow.OPTION_LIST[self.option_index]
+
+    def updateView(self, screen):
+        screen.addstr(0, 0, LOGO)
+
+        for index, option in enumerate(MenuWindow.OPTION_LIST):
+            screen.addstr(20 + 2 * index, 20, option, curses.color_pair(self.option_index == index))
 
 
 class GameWindow():
     def __init__(self, appConfig):
         self.appConfig = appConfig
-        self.player = Player()
         self.maze = Maze()
-    
-    def keyboard_handle(self, keypressed):
+        self.player = Player(*self.maze.getRandomPosition())
+        self.key = Key(*self.maze.getRandomPosition())
+        self.timer = Timer(240)
+
+        self.maze.closePassage()
+        
+    def keyboardHandle(self, keypressed):
         if keypressed == curses.KEY_DOWN:
             self.player.changePostionBy(y=1)
         elif keypressed == curses.KEY_UP:
@@ -170,17 +234,29 @@ class GameWindow():
             self.player.changePostionBy(x=-1)
         elif keypressed == curses.KEY_RIGHT:
             self.player.changePostionBy(x=1)
+        elif keypressed == ord('q'):
+            self.appConfig['currentView'] = 'Menu'
     
-    def calculate(self):
+    def preprocess(self):
         if self.maze.isWall(*self.player.getPosition()):
-            self.player.lookoutisWall() 
+            self.player.restorePosition()
 
-    def update_view(self, screen):
-        self.calculate()
-        self.maze.draw(screen)
+        if self.key.getPosition() == self.player.getPosition():
+            self.key.hide()
+            self.maze.openPassage()
+
+        if self.timer.isTimeout():
+            self.appConfig['currentView'] = 'Menu'
+
+    def updateView(self, screen):
+        self.preprocess()
+
+        self.maze.draw(screen, self.player.getPosition())
+        self.timer.draw(screen)
+        self.key.draw(screen)
         self.player.draw(screen)
 
-        
+     
 class End():
     def __init__(self):
         pass
@@ -195,8 +271,8 @@ class End():
 class App:
     def __init__(self):
         self.appConfig = {
-            'difficultLevel': 0,
-            'currentView': 'Menu'
+            'currentView': 'Menu',
+            'keyFound': False
         }
 
         self.dispatcher = {
@@ -221,8 +297,8 @@ class App:
 
             if window:
                 screen.clear()
-                window.keyboard_handle(keypressed)
-                window.update_view(screen)
+                window.keyboardHandle(keypressed)
+                window.updateView(screen)
             else:
                 keepLoop = False
                 continue
@@ -230,4 +306,8 @@ class App:
 
 if __name__ == "__main__":
     app = App()
-    curses.wrapper(app.main)
+
+    try:
+        curses.wrapper(app.main)
+    except KeyboardInterrupt:
+        exit()
