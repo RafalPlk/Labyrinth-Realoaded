@@ -1,5 +1,5 @@
 import curses
-
+import random
 # app = {
 #     'menu': {
 #         'option_index': 0,
@@ -39,7 +39,7 @@ LOGO = """
                            __/ |                 
                           |___/                  
    ______     _                 _          _     
-   | ___ \   | |               | |        | |    
+   | ___ \   | |               | |        | |TM.
    | |_/ /___| | ___   __ _  __| | ___  __| |    
    |    // _ \ |/ _ \ / _` |/ _` |/ _ \/ _` |    
    | |\ \  __/ | (_) | (_| | (_| |  __/ (_| |    
@@ -54,15 +54,65 @@ dy = {E: 0, W: 0, N: -1, S: 1}
 
 directions = [N, S, E, W]
 
+# wyrzuc
+WIDTH = 50
+HEIGHT = 25
+
+def backtracking_labirynth_generator(
+        labirynth_matrix,
+        position_y=1,
+        position_x=1):
+    # przetasowanie listy
+    random.shuffle(directions)
+
+    for direction in directions:
+        # obliczamy nowe punkty na podstawie starych
+        new_x, new_y = position_x + dx[direction], position_y + dy[direction]
+
+        if 0 < new_x < WIDTH - 1 and 0 < new_y < HEIGHT - 1 and labirynth_matrix[new_y][new_x]:
+
+            # skrót
+            matrix = labirynth_matrix
+
+            # sprawdzamy czy jeśli podążamy na północ to po prawe, lewej i
+            # wyżej komórka nie jest zajęta
+            if direction == N and (
+                    not matrix[new_y][new_x + 1] or not matrix[new_y][new_x - 1] or not matrix[new_y - 1][new_x]):
+                continue
+
+            # sprawdzamy czy jeśli podążamy na południe to po prawej, lewej i
+            # poniżej komórka nie jest zajęta
+            if direction == S and (
+                    not matrix[new_y][new_x + 1] or not matrix[new_y][new_x - 1] or not matrix[new_y + 1][new_x]):
+                continue
+
+            # sprawdzamy czy jeśli podążamy na wschód to po wyżej, po niżej i
+            # po prawej komórka nie jest zajęta
+            if direction == E and (
+                    not matrix[new_y][new_x + 1] or not matrix[new_y - 1][new_x] or not matrix[new_y + 1][new_x]):
+                continue
+
+            # sprawdzamy czy jeśli podążamy na zachód to po wyżej, po niżej i
+            # po lewej komórka nie jest zajęta
+            if direction == W and (
+                    not matrix[new_y][new_x - 1] or not matrix[new_y - 1][new_x] or not matrix[new_y + 1][new_x]):
+                continue
+
+            # wypełnianie ścieżki
+            labirynth_matrix[new_y][new_x] = 0
+
+            # rekurencyjnie wywołujemy jeszcze raz obecną funkcje
+            backtracking_labirynth_generator(labirynth_matrix, new_y, new_x)
+
 
 # backtracking algorithm
 def makeMaze(matrix):
-    random.shuffle(directions)
-    # todo dopisac
+    backtracking_labirynth_generator(matrix)
+    return matrix
 
 
 def makeMatrix(height, width, fillValue=1):
-    return [fillValue for y in range(height) for x in range(width)]
+    return [[fillValue for y in range(height)] for x in range(width)]
 
 
 class MenuWindow():  
@@ -85,57 +135,72 @@ class MenuWindow():
         screen.addstr(0, 0, LOGO)
 
         for index, option in enumerate(MenuWindow.OPTION_LIST):
-            screen.addstr(10 + 2 * index, 10, option, curses.color_pair(self.option_index == index))
+            screen.addstr(20 + 2 * index, 20, option, curses.color_pair(self.option_index == index))
 
 
 class Player:
-    def __init__(self, max_x, max_y):
-        self.x, self.y = (0, 0) 
+    def __init__(self):
+        self.x, self.y = (1, 1)
+        self.last_Position = [self.x, self.y]
 
     def setPosition(x_position, y_position):
         self.x = x_position
         self.y = y_position
 
-    def getPosition():
+    def getPosition(self):
         return self.x, self.y
 
-    def attemptToChangePostionBy(x=0, y=0):
-        return self.x + x, self.y + y
+    def lookoutisWall(self):
+        self.x, self.y = self.last_Position
 
-    def changePostionBy(x=0, y=0):
-        self.x, self.y = x, y
+    def changePostionBy(self, x=0, y=0):
+        self.last_Position = [self.x, self.y]
+        self.x += x 
+        self.y += y
+
+    def draw(self, screen):
+        screen.addstr(self.y, self.x, "x")
 
 
 class Maze:
     def __init__(self):
         self.maze = makeMaze(makeMatrix(50, 25))
 
-    def isWall(xPosition, yPosition):
-        return maze[yPosition][xPosition] == WALL
+    def isWall(self, xPosition, yPosition):
+        return self.maze[yPosition][xPosition] == WALL
 
-    def isPath():
-        return maze[yPosition][xPosition] == PATH
+    def draw(self, screen):
+        for y, row in enumerate(self.maze): 
+            for x, element in enumerate(row):
+                screen.addstr(y, x, " █"[self.maze[y][x]]) 
 
 
 class GameWindow():
-    def __init__(self):
+    def __init__(self, appConfig):
+        self.appConfig = appConfig
         self.player = Player()
         self.maze = Maze()
     
-    def keyboard_handle(self):
+    def keyboard_handle(self, keypressed):
         if keypressed == curses.KEY_DOWN:
-            self.player.changePostionBy()
+            self.player.changePostionBy(y=1)
         elif keypressed == curses.KEY_UP:
-            self.player.stepTop()
+            self.player.changePostionBy(y=-1)
         elif keypressed == curses.KEY_LEFT:
-            self.player.stepLeft()
+            self.player.changePostionBy(x=-1)
         elif keypressed == curses.KEY_RIGHT:
-            self.player.stepRight()
+            self.player.changePostionBy(x=1)
+    
+    def calculate(self):
+        if self.maze.isWall(*self.player.getPosition()):
+            self.player.lookoutisWall() 
 
     def update_view(self, screen):
-        screen.addstr(*self.player.getPosition(), )
-        
+        self.calculate()
+        self.maze.draw(screen)
+        self.player.draw(screen)
 
+        
 class End():
     def __init__(self):
         pass
@@ -156,6 +221,7 @@ class App:
 
         self.dispatcher = {
             'Menu': MenuWindow(self.appConfig),
+            'Start': GameWindow(self.appConfig),
             'Quit': None
         }
 
